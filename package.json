@@ -1,0 +1,44 @@
+{
+  "name": "gameport-browser",
+  "version": "1.0.0",
+  "description": "Lightweight Chromium-based browser that routes all traffic through a configurable local port",
+  "main": "src/main/main.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "start:logging": "electron . --enable-logging",
+    "test": "node scripts/test-proxy.js",
+    "dist": "electron-builder",
+    "start:codespaces": "electron . --no-sandbox --disable-gpu"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "dev.example.gameport",
+    "productName": "GamePort Browser",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.utilities"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Network"
+    }
+  },
+  "author": {
+    "name": "GamePort",
+    "email": "you@example.com"
+  }
+}

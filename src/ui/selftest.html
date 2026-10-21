@@ -1,0 +1,92 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Capability self-test</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; background: #1b1f2a; color: #e6e9f2; margin: 24px auto; max-width: 860px; padding: 0 16px; }
+  h1 { font-size: 20px; } h3 { margin-top: 28px; }
+  table { border-collapse: collapse; width: 100%; } td { padding: 5px 8px; border-bottom: 1px solid #343c50; vertical-align: top; }
+  td:first-child { width: 46%; color: #98a1b8; } .ok { color: #62d9a0; } .no { color: #ff7a7a; }
+  canvas { background: #000; margin: 0 8px 8px 0; border-radius: 4px; }
+  input { width: 60%; padding: 6px 8px; background: #242a38; color: inherit; border: 1px solid #3a435a; border-radius: 6px; }
+  button { padding: 6px 12px; background: #2b3244; color: inherit; border: 1px solid #3a435a; border-radius: 6px; cursor: pointer; }
+  pre { background: #242a38; padding: 8px; max-height: 160px; overflow: auto; border-radius: 6px; }
+</style>
+<h1>Capability self-test</h1>
+<table id="t"></table>
+
+<h3>Rendering and frame rate</h3>
+<canvas id="gl" width="300" height="150"></canvas><canvas id="c2" width="300" height="150"></canvas>
+<div id="fps">measuring...</div>
+
+<h3>WebSocket</h3>
+<p>Enter a ws:// or wss:// address to check that real-time traffic passes through your proxy.</p>
+<input id="ws" placeholder="wss://your-game-server.example/socket"> <button id="go">Connect</button> <button id="snd">Send "ping"</button>
+<pre id="log"></pre>
+
+<script>
+const t = document.getElementById('t');
+function row(name, value, ok) {
+  const tr = document.createElement('tr'), a = document.createElement('td'), b = document.createElement('td');
+  a.textContent = name; b.textContent = value; b.className = ok ? 'ok' : 'no';
+  tr.append(a, b); t.append(tr);
+}
+const yes = (name, ok, extra) => row(name, ok ? 'Supported' + (extra ? ' - ' + extra : '') : 'Not available', ok);
+
+// Graphics
+const probe = document.createElement('canvas');
+const gl2 = probe.getContext('webgl2'), gl1 = gl2 || probe.getContext('webgl');
+let gpu = '';
+if (gl1) { const e = gl1.getExtension('WEBGL_debug_renderer_info'); gpu = e ? gl1.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; }
+yes('WebGL 2', !!gl2); yes('WebGL 1', !!gl1, gpu);
+yes('Canvas 2D', !!document.createElement('canvas').getContext('2d'));
+yes('OffscreenCanvas', typeof OffscreenCanvas !== 'undefined');
+
+// Media
+const v = document.createElement('video');
+const ct = (label, type) => row('Play ' + label, v.canPlayType(type) || 'No', !!v.canPlayType(type));
+ct('H.264 / AAC (MP4)', 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
+ct('VP9 / Opus (WebM)', 'video/webm; codecs="vp9, opus"');
+ct('VP8 / Vorbis (WebM)', 'video/webm; codecs="vp8, vorbis"');
+ct('AV1 (MP4)', 'video/mp4; codecs="av01.0.05M.08"');
+ct('MP3', 'audio/mpeg'); ct('AAC', 'audio/mp4; codecs="mp4a.40.2"'); ct('Ogg Opus', 'audio/ogg; codecs="opus"');
+yes('Media Source Extensions', 'MediaSource' in window);
+if ('MediaSource' in window) {
+  const mse = (label, type) => yes('MSE ' + label, MediaSource.isTypeSupported(type));
+  mse('H.264 / AAC', 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
+  mse('VP9 / Opus', 'video/webm; codecs="vp9, opus"');
+}
+yes('Web Audio', 'AudioContext' in window || 'webkitAudioContext' in window);
+
+// Platform
+yes('WebSocket', 'WebSocket' in window);
+yes('WebAssembly', 'WebAssembly' in window);
+yes('Gamepad API', 'getGamepads' in navigator);
+yes('Pointer Lock', 'requestPointerLock' in Element.prototype);
+yes('Fullscreen', 'requestFullscreen' in Element.prototype);
+yes('WebRTC', 'RTCPeerConnection' in window);
+yes('SharedArrayBuffer', typeof SharedArrayBuffer !== 'undefined');
+row('CPU threads', String(navigator.hardwareConcurrency || '?'), true);
+
+// Animated render test
+const g = document.getElementById('gl').getContext('webgl'), c = document.getElementById('c2').getContext('2d');
+let frames = 0, last = performance.now();
+function tick(now) {
+  if (g) { const k = now / 1000; g.clearColor((Math.sin(k) + 1) / 2, (Math.sin(k * 1.3) + 1) / 2, 0.6, 1); g.clear(g.COLOR_BUFFER_BIT); }
+  c.fillStyle = '#000'; c.fillRect(0, 0, 300, 150);
+  c.fillStyle = '#5aa9ff'; c.fillRect(20 + (now / 8) % 240, 60 + Math.sin(now / 200) * 40, 36, 36);
+  frames++;
+  if (now - last >= 1000) { document.getElementById('fps').textContent = frames + ' frames per second'; frames = 0; last = now; }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// WebSocket tester
+let sock; const log = document.getElementById('log');
+const say = (m) => { log.textContent += m + '\n'; log.scrollTop = log.scrollHeight; };
+document.getElementById('go').onclick = () => {
+  try { sock = new WebSocket(document.getElementById('ws').value.trim()); } catch (e) { return say('Invalid address: ' + e.message); }
+  sock.onopen = () => say('Connected'); sock.onmessage = (e) => say('Received: ' + String(e.data).slice(0, 200));
+  sock.onerror = () => say('Connection error'); sock.onclose = (e) => say('Closed (code ' + e.code + ')');
+};
+document.getElementById('snd').onclick = () => { if (sock && sock.readyState === 1) { sock.send('ping'); say('Sent: ping'); } else say('Not connected'); };
+</script>

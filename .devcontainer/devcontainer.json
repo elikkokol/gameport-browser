@@ -1,0 +1,12 @@
+{
+  "name": "GamePort Browser",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/desktop-lite:1": {}
+  },
+  "forwardPorts": [6080],
+  "portsAttributes": {
+    "6080": { "label": "Desktop (noVNC)", "onAutoForward": "notify" }
+  },
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y libgtk-3-0 libnss3 libasound2 libxss1 libgbm1 libxtst6 libatk-bridge2.0-0 libcups2 && npm install"
+}

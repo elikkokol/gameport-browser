@@ -1,0 +1,29 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # --ignore-scripts skips the ~100 MB Electron download; the proxy tests only need Node.
+      - run: npm install --ignore-scripts
+      - name: Syntax check
+        shell: bash
+        run: for f in src/main/*.js src/ui/*.js scripts/*.js; do node --check "$f"; done
+      - name: Proxy integration tests
+        run: npm test
